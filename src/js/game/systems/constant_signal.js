@@ -1,4 +1,5 @@
 import { ConstantSignalComponent } from "../components/constant_signal";
+import { MP } from "../../multiplayer/session";
 import { GameSystemWithFilter } from "../game_system_with_filter";
 
 export class ConstantSignalSystem extends GameSystemWithFilter {
@@ -6,6 +7,10 @@ export class ConstantSignalSystem extends GameSystemWithFilter {
         super(root, [ConstantSignalComponent]);
 
         this.root.signals.entityManuallyPlaced.add(entity => {
+            if (MP.applyingRemote) {
+                // Placed by another player, they get the dialog instead
+                return;
+            }
             const editorHud = this.root.hud.parts.constantSignalEdit;
             if (editorHud) {
                 editorHud.editConstantSignal(entity, { deleteOnCancel: true });

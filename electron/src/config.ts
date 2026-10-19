@@ -6,6 +6,13 @@ app.commandLine.appendSwitch("disable-features", disabledFeatures.join(","));
 
 export const defaultWindowTitle = "shapez CE";
 
+// Allows running several instances side by side (e.g. to test multiplayer
+// locally), each with its own saves and settings
+const profile = app.commandLine.getSwitchValue("mp-profile");
+if (/^[\w-]{1,32}$/.test(profile)) {
+    app.setPath("userData", app.getPath("userData") + "-" + profile);
+}
+
 // This variable should be used to avoid situations where the app name
 // wasn't set yet.
 export const userData = app.getPath("userData");

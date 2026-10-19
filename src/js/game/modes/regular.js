@@ -32,6 +32,7 @@ import { HUDWaypoints } from "../hud/parts/waypoints";
 import { HUDWireInfo } from "../hud/parts/wire_info";
 import { HUDWiresOverlay } from "../hud/parts/wires_overlay";
 import { HUDWiresToolbar } from "../hud/parts/wires_toolbar";
+import { HUDMultiplayerOverlay } from "../hud/parts/multiplayer_overlay";
 import { ShapeDefinition } from "../shape_definition";
 import { enumHubGoalRewards } from "../tutorial_goals";
 import { finalGameShape, REGULAR_MODE_LEVELS } from "./levels";
@@ -346,6 +347,7 @@ export class RegularGameMode extends GameMode {
             tutorialVideoOffer: HUDTutorialVideoOffer,
             gameMenu: HUDGameMenu,
             constantSignalEdit: HUDConstantSignalEdit,
+            multiplayerOverlay: HUDMultiplayerOverlay,
         };
 
         if (!IS_MOBILE) {

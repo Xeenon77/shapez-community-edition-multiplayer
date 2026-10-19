@@ -15,6 +15,7 @@ import type { HUDLeverToggle } from "./parts/lever_toggle.js";
 import type { HUDMassSelector } from "./parts/mass_selector.js";
 import type { HUDMinerHighlight } from "./parts/miner_highlight.js";
 import type { HUDModalDialogs } from "./parts/modal_dialogs.js";
+import type { HUDMultiplayerOverlay } from "./parts/multiplayer_overlay.js";
 import type { HUDPuzzleNextPuzzle } from "./parts/next_puzzle.js";
 import type { HUDNotifications } from "./parts/notifications.js";
 import type { HUDPinnedShapes } from "./parts/pinned_shapes.js";
@@ -84,6 +85,7 @@ export interface HudParts {
     minerHighlight?: HUDMinerHighlight;
     tutorialVideoOffer?: HUDTutorialVideoOffer;
     gameMenu?: HUDGameMenu;
+    multiplayerOverlay?: HUDMultiplayerOverlay;
     keybindingOverlay?: HUDKeybindingOverlay;
     tutorialHints?: HUDPartTutorialHints;
     interactiveTutorial?: HUDInteractiveTutorial;

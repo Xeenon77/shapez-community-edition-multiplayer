@@ -2,6 +2,7 @@ import { globalConfig } from "../../core/config";
 import { DrawParameters } from "../../core/draw_parameters";
 import { Signal } from "../../core/signal";
 import { MOD_SIGNALS } from "../../mods/mod_signals";
+import { MP } from "../../multiplayer/session";
 import { KEYMAPPINGS } from "../key_action_mapper";
 import { MetaBuilding } from "../meta_building";
 import { GameRoot } from "../root";
@@ -121,6 +122,10 @@ export class GameHUD {
      * Returns true if the game logic should be paused
      */
     shouldPauseGame() {
+        if (MP.isActive(this.root)) {
+            // Other players keep playing, so the simulation never pauses
+            return false;
+        }
         for (const key in this.parts) {
             if (this.parts[key].shouldPauseGame()) {
                 return true;
@@ -187,6 +192,7 @@ export class GameHUD {
             "minerHighlight",
             "shapeTooltip",
             "interactiveTutorial",
+            "multiplayerOverlay",
         ];
 
         for (let i = 0; i < partsOrder.length; ++i) {

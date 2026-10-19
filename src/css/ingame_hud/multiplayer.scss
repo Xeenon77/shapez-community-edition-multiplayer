@@ -1,0 +1,239 @@
+@use "../mixins" as *;
+@use "../variables" as *;
+
+// Multiplayer (unofficial fork)
+
+$mpColor: #7c5cd6;
+$mpGameColor: #38c172;
+
+// Session card in the pause menu, centered below the icon buttons
+#ingame_HUD_SettingsMenu {
+    .menuElement {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .multiplayerCard {
+        margin-top: 2.5rem;
+        min-width: 16rem;
+        padding: 0.5rem 1.2rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.15rem;
+        background-color: $mpColor;
+        text-transform: none;
+
+        .title {
+            @include Text;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .details {
+            @include SuperSmallText;
+            opacity: 0.85;
+        }
+
+        &[data-kind="host"],
+        &[data-kind="client"] {
+            background-color: #38a36a;
+        }
+    }
+}
+
+// Clients can't save, the host keeps the world
+#ingame_HUD_GameMenu .button.save.mpHidden {
+    display: none;
+}
+
+// Other players in the marker list (top right), when they are off screen
+#ingame_HUD_Waypoints .mpPlayers {
+    display: flex;
+    flex-direction: column;
+
+    .waypoint.mpPlayer {
+        opacity: 0.85;
+
+        canvas {
+            // The list is inverted in the dark theme, keep the player color
+            @include DarkThemeInvert();
+        }
+    }
+}
+
+// Layout of the multiplayer dialogs: cancel left, confirm right, readable placeholders
+.ingameDialog.mpDialog {
+    .mpDesc {
+        margin-bottom: 0.3rem;
+    }
+
+    .buttons {
+        justify-content: space-between;
+
+        > button:first-child {
+            margin-left: 0;
+        }
+
+        // Keeps its place so Cancel doesn't move
+        > button.mpInvisible {
+            visibility: hidden;
+        }
+    }
+
+    input::placeholder {
+        color: #8d9099 !important;
+        opacity: 1 !important;
+    }
+
+    input.errored::placeholder {
+        color: #b4555a !important;
+    }
+}
+
+.ingameDialog {
+    .mpAddressList,
+    .mpPlayerList {
+        margin: 0.5rem 0;
+        padding-left: 1.2rem;
+        list-style: disc;
+        user-select: text;
+
+        strong {
+            user-select: text;
+        }
+
+        .tags {
+            opacity: 0.6;
+        }
+    }
+
+    .mpGameList {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        margin: 0.3rem 0 0.6rem;
+        max-height: 14rem;
+        overflow-y: auto;
+
+        .empty {
+            @include PlainText;
+            opacity: 0.6;
+            padding: 0.6rem 0;
+
+            &.searching::after {
+                content: "";
+                display: inline-block;
+                width: 0.7rem;
+                height: 0.7rem;
+                margin-left: 0.5rem;
+                vertical-align: middle;
+                border: 0.15rem solid currentColor;
+                border-right-color: transparent;
+                border-radius: 50%;
+                animation: mpSpin 0.8s linear infinite;
+            }
+        }
+
+        .game {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
+            padding: 0.45rem 0.7rem;
+            border-radius: $globalBorderRadius;
+            background: rgba($mpGameColor, 0.14);
+            border: 0.1rem solid rgba($mpGameColor, 0.45);
+            cursor: pointer;
+            pointer-events: all;
+            transition: background-color 0.12s ease-in-out;
+
+            &:hover {
+                background: rgba($mpGameColor, 0.26);
+            }
+
+            &.pressed {
+                transform: scale(0.98);
+            }
+
+            &.incompatible {
+                cursor: default;
+                opacity: 0.5;
+            }
+
+            .text {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .host {
+                @include Text;
+                font-weight: bold;
+            }
+
+            .details {
+                @include SuperSmallText;
+                opacity: 0.75;
+            }
+
+            .lock {
+                width: 1.1rem;
+                height: 1.1rem;
+                flex-shrink: 0;
+                opacity: 0.7;
+            }
+        }
+    }
+
+    .mpCollapsible {
+        margin-top: 0.4rem;
+
+        .toggle {
+            @include PlainText;
+            cursor: pointer;
+            pointer-events: all;
+            opacity: 0.7;
+            user-select: none;
+
+            &::before {
+                content: "▸ ";
+            }
+
+            &:hover {
+                opacity: 1;
+            }
+        }
+
+        .body {
+            display: none;
+            flex-direction: column;
+            margin-top: 0.4rem;
+        }
+
+        &.open {
+            .toggle::before {
+                content: "▾ ";
+            }
+
+            .body {
+                display: flex;
+            }
+        }
+    }
+}
+
+@keyframes mpSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+#state_MainMenuState .mainContainer .buttons .outer {
+    grid-template-rows: none !important;
+    grid-auto-rows: 1fr;
+
+    .joinMultiplayerButton {
+        background-color: $mpColor !important;
+    }
+}

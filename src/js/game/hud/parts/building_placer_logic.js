@@ -458,9 +458,14 @@ export class HUDBuildingPlacerLogic extends BaseHUDPart {
             variant: this.currentVariant.get(),
         });
 
-        if (entity) {
+        // In multiplayer, clients send placements to the host and get the entity later
+        const placedRemotely = !entity && this.root.logic.lastPlacementWasRemote;
+
+        if (entity || placedRemotely) {
             // Succesfully placed, find which entity we actually placed
-            this.root.signals.entityManuallyPlaced.dispatch(entity);
+            if (entity) {
+                this.root.signals.entityManuallyPlaced.dispatch(entity);
+            }
 
             // Check if we should flip the orientation (used for tunnels)
             if (

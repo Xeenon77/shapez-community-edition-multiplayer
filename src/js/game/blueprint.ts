@@ -2,6 +2,7 @@ import { globalConfig } from "../core/config";
 import type { DrawParameters } from "../core/draw_parameters";
 import { findNiceIntegerValue } from "../core/utils";
 import { Vector } from "../core/vector";
+import { MP } from "../multiplayer/session";
 import type { Entity } from "./entity";
 import type { GameRoot } from "./root";
 
@@ -166,6 +167,21 @@ export class Blueprint {
      * Attempts to place the blueprint at the given tile
      */
     tryPlace(root: GameRoot, tile: Vector) {
+        if (MP.interceptsActions(root)) {
+            // Multiplayer client: the host pastes it and pays from the shared hub
+            if (!this.canPlace(root, tile)) {
+                return false;
+            }
+            MP.sendIntent({
+                type: "pasteBlueprint",
+                tile: { x: tile.x, y: tile.y },
+                free: this.isNextPasteFree,
+                entities: this.entities.map(entity => entity.serialize()),
+            });
+            this.isNextPasteFree = false;
+            return true;
+        }
+
         const consumed: boolean = root.logic.performBulkOperation(() => {
             return root.logic.performImmutableOperation(() => {
                 let count = 0;

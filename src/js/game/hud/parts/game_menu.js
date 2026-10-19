@@ -6,6 +6,7 @@ import { T } from "../../../translations";
 import { KEYMAPPINGS } from "../../key_action_mapper";
 import { DynamicDomAttach } from "../dynamic_dom_attach";
 import { TrackedState } from "../../../core/tracked_state";
+import { MP } from "../../../multiplayer/session";
 
 export class HUDGameMenu extends BaseHUDPart {
     createElements(parent) {
@@ -103,6 +104,13 @@ export class HUDGameMenu extends BaseHUDPart {
 
         // Check whether we are saving
         this.trackedIsSaving.set(!!this.root.gameState.currentSavePromise);
+
+        // Multiplayer clients can't save, the host keeps the world
+        const isClient = MP.isClient(this.root);
+        if (isClient !== this.saveButtonHidden) {
+            this.saveButtonHidden = isClient;
+            this.saveButton.classList.toggle("mpHidden", isClient);
+        }
 
         // Update visibility of buttons
         for (let i = 0; i < this.visibilityToUpdate.length; ++i) {

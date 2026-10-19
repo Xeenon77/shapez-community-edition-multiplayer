@@ -3,6 +3,8 @@ import { DialogWithForm } from "../../../core/modal_dialog_elements";
 import { FormElementInput, FormElementItemChooser } from "../../../core/modal_dialog_forms";
 import { STOP_PROPAGATION } from "../../../core/signal";
 import { fillInLinkIntoTranslation } from "../../../core/utils";
+import { MP } from "../../../multiplayer/session";
+import { ConstantSignalComponent } from "../../components/constant_signal";
 import { Vector } from "../../../core/vector";
 import { T } from "../../../translations";
 import { BaseItem } from "../../base_item";
@@ -139,11 +141,22 @@ export class HUDConstantSignalEdit extends BaseHUDPart {
                 return;
             }
 
-            if (itemInput.chosenItem) {
-                constantComp.signal = itemInput.chosenItem;
-            } else {
-                constantComp.signal = this.parseSignalCode(entity, signalValueInput.getValue());
+            const signal = itemInput.chosenItem
+                ? itemInput.chosenItem
+                : this.parseSignalCode(entity, signalValueInput.getValue());
+
+            if (MP.interceptsActions(this.root)) {
+                MP.sendIntent({
+                    type: "configure",
+                    uid,
+                    component: "ConstantSignal",
+                    data: new ConstantSignalComponent({ signal }).serialize(),
+                });
+                return;
             }
+
+            constantComp.signal = signal;
+            MP.notifyEntityConfigChanged(this.root, entityRef);
         };
 
         dialog.buttonSignals.ok.add(() => {

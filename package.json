@@ -18,7 +18,8 @@
         "package-linux-arm64": "gulp --cwd gulp package.standalone.linux-arm64",
         "package-darwin-x64": "gulp --cwd gulp package.standalone.darwin-x64",
         "package-darwin-arm64": "gulp --cwd gulp package.standalone.darwin-arm64",
-        "package-all": "gulp --cwd gulp package.standalone.all"
+        "package-all": "gulp --cwd gulp package.standalone.all",
+        "test:multiplayer": "node tests/multiplayer/e2e.mjs"
     },
     "dependencies": {
         "@msgpack/msgpack": "^3.1.2",
@@ -64,6 +65,7 @@
         "imagemin-jpegtran": "^7.0.0",
         "imagemin-mozjpeg": "^8.0.0",
         "imagemin-pngquant": "^10.0.0",
+        "playwright-core": "^1.48.2",
         "postcss-assets": "^5.0.0",
         "postcss-critical-split": "^2.5.3",
         "prettier": "^3.3.2",

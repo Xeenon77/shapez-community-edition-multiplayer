@@ -95,6 +95,13 @@ export class EntityManager extends BasicSerializableObject {
     }
 
     /**
+     * Makes sure generated uids never collide with the given (externally assigned) uid
+     */
+    reserveUidsUpTo(uid: number) {
+        this.nextUid = Math.max(this.nextUid, uid + 1);
+    }
+
+    /**
      * Call to attach a new component after the creation of the entity
      */
     attachDynamicComponent(entity: Entity, component: Component) {

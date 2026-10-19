@@ -8,6 +8,7 @@ import { enumGameModeIds } from "../game/game_mode";
 import { HUDModalDialogs } from "../game/hud/parts/modal_dialogs";
 import { KeyActionMapper } from "../game/key_action_mapper";
 import { MOD_SIGNALS } from "../mods/mod_signals";
+import { MP } from "../multiplayer/session";
 import { MUSIC } from "../platform/sound";
 import { Savegame } from "../savegame/savegame";
 import { T } from "../translations";
@@ -160,6 +161,9 @@ export class InGameState extends GameState {
      * Goes back to the settings state
      */
     goToSettings() {
+        if (this.showMultiplayerLeaveBlocked("mpGoToSettings", "SettingsState")) {
+            return;
+        }
         this.saveThenGoToState("SettingsState", {
             backToStateId: this.key,
             backToStatePayload: this.creationPayload,
@@ -170,10 +174,49 @@ export class InGameState extends GameState {
      * Goes back to the settings state
      */
     goToKeybindings() {
+        if (this.showMultiplayerLeaveBlocked("mpGoToKeybindings", "KeybindingsState")) {
+            return;
+        }
         this.saveThenGoToState("KeybindingsState", {
             backToStateId: this.key,
             backToStatePayload: this.creationPayload,
         });
+    }
+
+    /**
+     * Opening the settings leaves the game, which would end a multiplayer session.
+     * Asks first, and continues after leaving the session if the player wants to.
+     * @param {"mpGoToSettings"|"mpGoToKeybindings"} buttonId
+     * @param {"SettingsState"|"KeybindingsState"} stateId
+     * @returns {boolean} whether it got blocked
+     */
+    showMultiplayerLeaveBlocked(buttonId, stateId) {
+        if (!this.core || !MP.isActive(this.core.root)) {
+            return false;
+        }
+        const root = this.core.root;
+        const dialogs = root.hud.parts.dialogs;
+        const consequence =
+            MP.role === "host"
+                ? "This ends the session for everyone."
+                : "You leave the game you joined.";
+        const signals = dialogs.showInfo(
+            "Not available in multiplayer",
+            "Opening the settings or keybindings leaves the game. " + consequence,
+            [buttonId + ":bad", "cancel:good:escape"]
+        );
+        // Red button on the left, cancel on the right
+        dialogs.dialogStack[dialogs.dialogStack.length - 1]?.element?.classList.add("mpDialog");
+        signals[buttonId].add(() => {
+            const wasClient = MP.role === "client";
+            MP.stop();
+            this.saveThenGoToState(stateId, {
+                // A client's copy of the host's world can't be resumed, so they go back to the menu
+                backToStateId: wasClient ? "MainMenuState" : this.key,
+                backToStatePayload: wasClient ? {} : this.creationPayload,
+            });
+        });
+        return true;
     }
 
     /**

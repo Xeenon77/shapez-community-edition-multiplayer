@@ -15,6 +15,7 @@ import {
     removeAllChildren,
 } from "../../../core/utils";
 import { Vector } from "../../../core/vector";
+import { MP } from "../../../multiplayer/session";
 import { T } from "../../../translations";
 import { BaseItem } from "../../base_item";
 import { MetaHubBuilding } from "../../buildings/hub";
@@ -231,6 +232,9 @@ export class HUDWaypoints extends BaseHUDPart {
                 targetOnly: true,
             });
         }
+
+        // Other players who are off screen
+        this.root.hud.parts.multiplayerOverlay?.mountPlayerList(this.waypointsListElement);
     }
 
     /**
@@ -248,8 +252,42 @@ export class HUDWaypoints extends BaseHUDPart {
      * @param {Waypoint} waypoint
      */
     deleteWaypoint(waypoint) {
+        if (MP.interceptsActions(this.root)) {
+            // Markers are shared in multiplayer, the host keeps the list
+            MP.sendIntent({ type: "waypoint", op: "delete", waypoint });
+            return;
+        }
         arrayDeleteValue(this.waypoints, waypoint);
         this.rerenderWaypointList();
+        MP.notifyWaypointsChanged(this.root);
+    }
+
+    /**
+     * Finds a waypoint by its label and position (used to match multiplayer changes)
+     * @param {{ label: string|null, center: { x: number, y: number }, layer: string }} key
+     * @returns {Waypoint|null}
+     */
+    findWaypoint(key) {
+        return (
+            this.waypoints.find(
+                waypoint =>
+                    waypoint.label === key.label &&
+                    waypoint.layer === key.layer &&
+                    waypoint.center.x === key.center.x &&
+                    waypoint.center.y === key.center.y
+            ) || null
+        );
+    }
+
+    /**
+     * Inserts a complete waypoint, e.g. one another player created
+     * @param {Waypoint} waypoint
+     */
+    insertWaypoint(waypoint) {
+        this.waypoints.push(waypoint);
+        this.sortWaypoints();
+        this.rerenderWaypointList();
+        MP.notifyWaypointsChanged(this.root);
     }
 
     /**
@@ -322,23 +360,26 @@ export class HUDWaypoints extends BaseHUDPart {
      * @param {Vector} position
      */
     addWaypoint(label, position) {
-        this.waypoints.push({
+        /** @type {Waypoint} */
+        const waypoint = {
             label,
             center: { x: position.x, y: position.y },
             zoomLevel: this.root.camera.zoomLevel,
             layer: this.root.currentLayer,
-        });
+        };
 
-        this.sortWaypoints();
+        if (MP.interceptsActions(this.root)) {
+            MP.sendIntent({ type: "waypoint", op: "add", waypoint });
+        } else {
+            // Also re-renders the list and thus adds it
+            this.insertWaypoint(waypoint);
+        }
 
         // Show notification about creation
         this.root.hud.signals.notification.dispatch(
             T.ingame.waypoints.creationSuccessNotification,
             enumNotificationType.success
         );
-
-        // Re-render the list and thus add it
-        this.rerenderWaypointList();
     }
 
     /**
@@ -347,7 +388,17 @@ export class HUDWaypoints extends BaseHUDPart {
      * @param {string} label
      */
     renameWaypoint(waypoint, label) {
+        if (MP.interceptsActions(this.root)) {
+            MP.sendIntent({ type: "waypoint", op: "rename", waypoint, label });
+            this.root.hud.signals.notification.dispatch(
+                T.ingame.waypoints.creationSuccessNotification,
+                enumNotificationType.success
+            );
+            return;
+        }
+
         waypoint.label = label;
+        MP.notifyWaypointsChanged(this.root);
 
         this.sortWaypoints();
 

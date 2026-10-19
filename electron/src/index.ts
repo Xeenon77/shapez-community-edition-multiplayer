@@ -36,6 +36,8 @@ function createWindow() {
         title: defaultWindowTitle,
         webPreferences: {
             preload: path.join(import.meta.dirname, "../preload.cjs"),
+            // Multiplayer: the simulation has to keep its pace while the window is in the background
+            backgroundThrottling: false,
         },
     });
 

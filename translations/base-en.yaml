@@ -165,6 +165,14 @@ dialogs:
         retry: Retry
         continue: Continue
         playOffline: Play Offline
+        mpHost: Host
+        mpJoin: Join
+        mpStopHosting: Stop hosting
+        mpSaveCopy: Save local copy
+        mpBackToMenu: Back to menu
+        mpLeave: Leave game
+        mpGoToSettings: Go to settings
+        mpGoToKeybindings: Go to keybindings
 
     importSavegameError:
         title: Import Error

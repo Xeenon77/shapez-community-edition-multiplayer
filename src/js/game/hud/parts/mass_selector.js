@@ -10,6 +10,7 @@ import { Entity } from "../../entity";
 import { KEYMAPPINGS } from "../../key_action_mapper";
 import { THEME } from "../../theme";
 import { enumHubGoalRewards } from "../../tutorial_goals";
+import { MP } from "../../../multiplayer/session";
 import { BaseHUDPart } from "../base_hud_part";
 
 /* typehints:start */
@@ -149,6 +150,13 @@ export class HUDMassSelector extends BaseHUDPart {
     }
 
     clearBelts() {
+        const uids = Array.from(this.selectedUids);
+        if (MP.interceptsActions(this.root)) {
+            MP.sendIntent({ type: "clearItems", uids });
+        } else {
+            MP.notifyItemsCleared(this.root, uids);
+        }
+
         for (const uid of this.selectedUids) {
             const entity = this.root.entityMgr.findByUid(uid);
             for (const component of Object.values(entity.components)) {

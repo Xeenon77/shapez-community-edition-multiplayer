@@ -12,6 +12,8 @@ import {
 } from "../core/utils";
 import { HUDModalDialogs } from "../game/hud/parts/modal_dialogs";
 import { MODS } from "../mods/modloader";
+import { showJoinDialog } from "../multiplayer/multiplayer_ui";
+import { MP } from "../multiplayer/session";
 import { Savegame } from "../savegame/savegame";
 import { T } from "../translations";
 
@@ -167,6 +169,9 @@ export class MainMenuState extends GameState {
     }
 
     onEnter(payload) {
+        // Coming back from a game always ends its multiplayer session
+        MP.stop();
+
         // Start loading already
         const app = this.app;
         setTimeout(() => app.backgroundResourceLoader.getIngamePromise(), 10);
@@ -277,7 +282,17 @@ export class MainMenuState extends GameState {
             this.onModsClicked
         );
 
+        // Multiplayer (unofficial fork)
+        this.trackClicks(
+            makeButton(outerDiv, ["joinMultiplayerButton", "styledButton"], "Join multiplayer"),
+            this.onJoinMultiplayerClicked
+        );
+
         buttonContainer.appendChild(outerDiv);
+    }
+
+    onJoinMultiplayerClicked() {
+        showJoinDialog(this.app, this.dialogs, (stateId, payload) => this.moveToState(stateId, payload));
     }
 
     onPuzzleModeButtonClicked(force = false) {

@@ -1,5 +1,6 @@
 import { InputReceiver } from "../../../core/input_receiver";
 import { formatBigNumberFull, makeDiv } from "../../../core/utils";
+import { MP } from "../../../multiplayer/session";
 import { T } from "../../../translations";
 import { BeltComponent } from "../../components/belt";
 import { StaticMapEntityComponent } from "../../components/static_map_entity";
@@ -54,6 +55,38 @@ export class HUDSettingsMenu extends BaseHUDPart {
 
             this.trackClicks(element, action);
         }
+
+        if (this.root.hud.parts.multiplayerOverlay) {
+            // Hosting / joined state of the multiplayer session
+            this.multiplayerCard = document.createElement("button");
+            this.multiplayerCard.classList.add("styledButton", "multiplayerCard");
+            this.multiplayerCardTitle = makeDiv(this.multiplayerCard, null, ["title"]);
+            this.multiplayerCardDetails = makeDiv(this.multiplayerCard, null, ["details"]);
+            this.menuElement.appendChild(this.multiplayerCard);
+            this.multiplayerCardKey = null;
+
+            this.trackClicks(this.multiplayerCard, () =>
+                this.root.hud.parts.multiplayerOverlay.onSessionCardClicked()
+            );
+        }
+    }
+
+    /**
+     * Updates the multiplayer card, players can join while the menu is open
+     */
+    updateMultiplayerCard() {
+        if (!this.multiplayerCard) {
+            return;
+        }
+        const { kind, title, details } = this.root.hud.parts.multiplayerOverlay.describeSession();
+        const key = kind + title + details;
+        if (key === this.multiplayerCardKey) {
+            return;
+        }
+        this.multiplayerCardKey = key;
+        this.multiplayerCard.dataset.kind = kind;
+        this.multiplayerCardTitle.innerText = title;
+        this.multiplayerCardDetails.innerText = details;
     }
 
     isBlockingOverlay() {
@@ -61,6 +94,15 @@ export class HUDSettingsMenu extends BaseHUDPart {
     }
 
     returnToMenu() {
+        if (MP.isHost(this.root) && MP.players.length > 1) {
+            const { ok } = this.root.hud.parts.dialogs.showWarning(
+                "End multiplayer session?",
+                "You are hosting. Leaving the game ends the session for everyone.",
+                ["cancel:good:escape", "ok:bad:enter"]
+            );
+            ok.add(() => this.root.gameState.goBackToMenu());
+            return;
+        }
         this.root.gameState.goBackToMenu();
     }
 
@@ -95,6 +137,8 @@ export class HUDSettingsMenu extends BaseHUDPart {
         this.root.app.inputMgr.makeSureAttachedAndOnTop(this.inputReceiver);
 
         const totalMinutesPlayed = Math.ceil(this.root.time.now() / 60);
+
+        this.updateMultiplayerCard();
 
         if (this.root.gameMode.hasHub()) {
             /** @type {HTMLElement} */
@@ -132,5 +176,8 @@ export class HUDSettingsMenu extends BaseHUDPart {
 
     update() {
         this.domAttach.update(this.visible);
+        if (this.visible) {
+            this.updateMultiplayerCard();
+        }
     }
 }

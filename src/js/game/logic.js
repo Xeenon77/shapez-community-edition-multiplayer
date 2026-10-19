@@ -3,6 +3,7 @@ import { Logger } from "../core/logging";
 import { STOP_PROPAGATION } from "../core/signal";
 import { round2Digits } from "../core/utils";
 import { enumDirection, enumDirectionToVector, enumInvertedDirections, Vector } from "../core/vector";
+import { MP } from "../multiplayer/session";
 import { getBuildingDataFromCode } from "./building_codes";
 import { enumWireVariant } from "./components/wire";
 import { Entity } from "./entity";
@@ -47,6 +48,12 @@ export class GameLogic {
      */
     constructor(root) {
         this.root = root;
+
+        /**
+         * Whether the last tryPlaceBuilding() call was sent to the multiplayer host
+         * instead of placing the building locally
+         */
+        this.lastPlacementWasRemote = false;
     }
 
     /**
@@ -114,6 +121,7 @@ export class GameLogic {
      * @returns {Entity}
      */
     tryPlaceBuilding({ origin, rotation, rotationVariant, originalRotation, variant, building }) {
+        this.lastPlacementWasRemote = false;
         const entity = building.createEntity({
             root: this.root,
             origin,
@@ -123,6 +131,19 @@ export class GameLogic {
             variant,
         });
         if (this.checkCanPlaceEntity(entity, {})) {
+            if (MP.interceptsActions(this.root)) {
+                // Multiplayer client: the host places it and sends it back
+                MP.sendIntent({
+                    type: "place",
+                    building: building.getId(),
+                    variant,
+                    origin: { x: origin.x, y: origin.y },
+                    originalRotation,
+                    manual: true,
+                });
+                this.lastPlacementWasRemote = true;
+                return null;
+            }
             this.freeEntityAreaBeforeBuild(entity);
             this.root.map.placeStaticEntity(entity);
             this.root.entityMgr.registerEntity(entity);
@@ -217,6 +238,11 @@ export class GameLogic {
     tryDeleteBuilding(building) {
         if (!this.canDeleteBuilding(building)) {
             return false;
+        }
+        if (MP.interceptsActions(this.root)) {
+            // Multiplayer client: the host deletes it and sends the change back
+            MP.requestDelete(building.uid);
+            return true;
         }
         this.root.map.removeStaticEntity(building);
         this.root.entityMgr.destroyEntity(building);

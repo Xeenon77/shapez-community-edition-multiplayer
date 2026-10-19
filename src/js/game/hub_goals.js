@@ -1,6 +1,7 @@
 import { globalConfig } from "../core/config";
 import { RandomNumberGenerator } from "../core/rng";
 import { clamp } from "../core/utils";
+import { MP } from "../multiplayer/session";
 import { BasicSerializableObject, types } from "../savegame/serialization";
 import { enumColors } from "./colors";
 import { enumItemProcessorTypes } from "./components/item_processor";
@@ -114,7 +115,7 @@ export class HubGoals extends BasicSerializableObject {
             window.addEventListener("keydown", ev => {
                 if (ev.key === "p") {
                     // root is not guaranteed to exist within ~0.5s after loading in
-                    if (this.root) {
+                    if (this.root && !MP.isClient(this.root)) {
                         if (!this.isEndOfDemoReached()) {
                             this.onGoalCompleted();
                         }
@@ -215,6 +216,11 @@ export class HubGoals extends BasicSerializableObject {
         this.storedShapes[hash] = (this.storedShapes[hash] || 0) + 1;
 
         this.root.signals.shapeDelivered.dispatch(definition);
+
+        if (MP.isClient(this.root)) {
+            // Levels are completed by the multiplayer host only
+            return;
+        }
 
         // Check if we have enough for the next level
         if (
@@ -324,6 +330,12 @@ export class HubGoals extends BasicSerializableObject {
      */
     tryUnlockUpgrade(upgradeId) {
         if (!this.canUnlockUpgrade(upgradeId)) {
+            return false;
+        }
+
+        if (MP.interceptsActions(this.root)) {
+            // Multiplayer client: the host buys it from the shared hub
+            MP.sendIntent({ type: "upgrade", id: upgradeId });
             return false;
         }
 
