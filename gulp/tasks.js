@@ -184,11 +184,18 @@ const prepare = {
             utils.cleanup,
             gulp.parallel(
                 utils.copyAdditionalBuildFiles,
-                gulp.series(imgres.buildAtlas, gulp.parallel(imgres.atlasToJson, imgres.atlas)),
+                // The code bundles the atlas JSON, so it has to wait for the atlas
+                gulp.series(
+                    imgres.buildAtlas,
+                    imgres.atlasToJson,
+                    gulp.parallel(
+                        imgres.atlas,
+                        gulp.series(gulp.parallel(sounds.dev, translations.fullBuild), js[variant].dev.build)
+                    )
+                ),
                 gulp.series(imgres.copyImageResources, css.dev),
                 imgres.copyNonImageResources,
-                html,
-                gulp.series(gulp.parallel(sounds.dev, translations.fullBuild), js[variant].dev.build)
+                html
             )
         ),
 };
@@ -228,7 +235,9 @@ for (const variant in BUILD_VARIANTS) {
         js[variant].prod.build
     );
 
-    const resourcesAndCode = gulp.parallel(step.baseResources, code);
+    // The code bundles the atlas JSON, so it has to wait for the resources (on a clean build
+    // the atlas doesn't exist yet and the game would ship without sprites)
+    const resourcesAndCode = gulp.series(step.baseResources, code);
 
     const all = gulp.series(resourcesAndCode, css.prod, html);
 
