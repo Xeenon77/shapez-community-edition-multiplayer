@@ -16,114 +16,62 @@ off screen are listed next to your markers in the top right; click one to jump t
 
 **Contents**
 
-1. [Install the tools](#1-install-the-tools-once)
-2. [Download the game code](#2-download-the-game-code)
-3. [Build the game](#3-build-the-game)
-4. [Start the game](#4-start-the-game)
-5. [Play together](#5-play-together)
-6. [Update to a new version](#6-update-to-a-new-version)
-7. [Troubleshooting](#7-troubleshooting)
+1. [Install](#1-install)
+2. [Play together](#2-play-together)
+3. [Update](#3-update)
+4. [Troubleshooting](#4-troubleshooting)
 
-The guide is for **Windows 10/11**. The first time takes about 15 minutes, most of it waiting for
-downloads. Everybody who plays together needs to do this (or see
-[Sharing a build](#sharing-a-build-instead)).
+## 1. Install
 
-## 1. Install the tools (once)
-
-The game is built on your PC from its source code. That needs four free tools.
+For **Windows 10/11**. The game is built on your PC from its source code; one command does
+everything.
 
 1. Open **PowerShell**: press the <kbd>Windows</kbd> key, type `PowerShell` and press <kbd>Enter</kbd>.
-2. Paste these commands one at a time (right-click pastes in PowerShell) and press <kbd>Enter</kbd>
-   after each. Accept the questions that pop up with **Yes**.
+2. Paste this command (right-click pastes in PowerShell) and press <kbd>Enter</kbd>:
 
     ```powershell
-    winget install --id Git.Git -e
+    irm https://raw.githubusercontent.com/Xeenon77/shapez-community-edition-multiplayer/master/setup.ps1 | iex
     ```
 
-    ```powershell
-    winget install --id OpenJS.NodeJS.22 -e
-    ```
+3. Wait until it says **Done!** The first time takes about 10–15 minutes, most of it downloads.
+   If Windows asks whether an installer may make changes to your PC, click **Yes**.
+4. The game starts by itself, and from now on you start it with **shapez Multiplayer** on your
+   desktop.
+5. The first time you host or join, Windows asks whether the game may use the network.
+   Allow it for **private networks**. Without that, you can't find or host games.
 
-    ```powershell
-    winget install --id EclipseAdoptium.Temurin.21.JRE -e
-    ```
+What the command does ([read the script](setup.ps1)): it installs the free tools needed to
+build the game if they're missing (Git, Node.js 22, Java and FFmpeg, via `winget`), downloads
+the code to `C:\Users\<you>\shapez-community-edition-multiplayer`, builds the game and creates
+the desktop shortcut. Your normal shapez saves are not touched; this version keeps its own saves.
 
-    ```powershell
-    winget install --id Gyan.FFmpeg -e
-    ```
+<details>
+<summary>Prefer to do it step by step?</summary>
 
-    That's Git (downloads the code), Node.js 22 (builds the game), Java (packs the textures) and
-    FFmpeg (converts the sounds). If a tool is already installed, winget says so; that's fine.
-
-3. **Close PowerShell and open a new one**, so it finds the new tools.
-4. Check that everything is there. Each command should print a version number:
-
-    ```powershell
-    git --version; node --version; java -version; ffmpeg -version
-    ```
-
-    `node --version` should start with `v22`. If a command says _"not recognized"_, see
-    [Troubleshooting](#7-troubleshooting).
-
-## 2. Download the game code
-
-In PowerShell, run these commands one at a time. They put the game into a folder
-`shapez-community-edition-multiplayer` in your user folder (e.g. `C:\Users\<you>`).
+Run these in PowerShell, one at a time:
 
 ```powershell
-cd ~
+winget install --id Git.Git -e
+winget install --id OpenJS.NodeJS.22 -e
+winget install --id EclipseAdoptium.Temurin.21.JRE -e
+winget install --id Gyan.FFmpeg -e
 ```
+
+Close PowerShell, open a new one, then:
 
 ```powershell
 git clone https://github.com/Xeenon77/shapez-community-edition-multiplayer.git
-```
-
-```powershell
 cd shapez-community-edition-multiplayer
-```
-
-## 3. Build the game
-
-Still in the same PowerShell window (inside the `shapez-community-edition-multiplayer` folder),
-run these commands one at a time. Each one can take a few minutes; wait until the prompt
-(`PS C:\...>`) comes back before running the next one. Warnings in yellow are normal.
-
-```powershell
 npm ci
-```
-
-```powershell
 npm ci --prefix electron
-```
-
-```powershell
 npm run package-win32-x64
 ```
 
-The last command ends with a line like `Packages created: [ '..\build_output\standalone\shapez-win32-x64' ]`.
-The game is now in this folder:
+The game is then in `build_output\standalone\shapez-win32-x64\shapezio.exe`.
 
-```
-shapez-community-edition-multiplayer\build_output\standalone\shapez-win32-x64
-```
+</details>
 
-## 4. Start the game
-
-1. Open the folder above in the Explorer. You can also open it from PowerShell:
-
-    ```powershell
-    explorer build_output\standalone\shapez-win32-x64
-    ```
-
-2. Double-click **`shapezio.exe`**.
-   Tip: right-click it → **Show more options** → **Send to** → **Desktop (create shortcut)**,
-   so you can start it from the desktop next time.
-3. The first time you host or join, Windows asks whether the game may use the network.
-   Allow it for **private networks**. Without that, you can't find or host games.
-
-Your normal shapez saves are not touched; this version keeps its own saves.
-
-## 5. Play together
+## 2. Play together
 
 ### Host a game (one player)
 
@@ -155,60 +103,37 @@ like on a local network.
 ### Good to know
 
 -   Everybody needs the **same version** of the game. If the versions differ, joining fails with
-    _"The host runs a different game version"_. Then all of you [update](#6-update-to-a-new-version).
+    _"The host runs a different game version"_. Then all of you [update](#3-update).
 -   The game doesn't pause while menus are open, because the others keep playing.
 -   Opening the settings during a session leaves the game (the game asks first).
 -   Items on belts can look slightly different for each player. Buildings, hub progress and upgrades
     are always the host's, and players who drift out of sync are corrected automatically.
 -   The Puzzle DLC is single-player only.
 
-## 6. Update to a new version
+## 3. Update
 
-Open PowerShell and run these commands one at a time:
+Run the [install command](#1-install) again. It downloads the newest version, rebuilds the game
+and keeps your saves. If the game is running, it asks you to close it first.
 
-```powershell
-cd ~\shapez-community-edition-multiplayer
-```
+## 4. Troubleshooting
 
-```powershell
-git pull
-```
-
-```powershell
-npm ci
-```
-
-```powershell
-npm ci --prefix electron
-```
-
-```powershell
-npm run package-win32-x64
-```
-
-Close the game before running the last command. Your saves are kept.
-
-## 7. Troubleshooting
-
-| Problem                                                                | Fix                                                                                                                                                                                                                                                       |
-| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `winget` is not recognized                                             | Install **App Installer** from the Microsoft Store, then open a new PowerShell.                                                                                                                                                                           |
-| `git`, `node`, `npm`, `java` or `ffmpeg` is not recognized             | Close PowerShell and open a new one. If it still fails, run its `winget install` command again, or restart the PC.                                                                                                                                        |
-| PowerShell says running scripts is disabled (when running `npm`)       | Run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, answer `Y`, then try again.                                                                                                                                                                    |
-| `npm ci` fails with `ENOTFOUND`, `ETIMEDOUT`, `gifsicle` or `pngquant` | Some image tools download helper files while installing, which sometimes fails. Check your internet connection and run `npm ci` again; it usually works the second time.                                                                                  |
-| The build fails with `spawn ffmpeg ENOENT` or a Java error             | FFmpeg or Java isn't found. Open a new PowerShell and check with `ffmpeg -version` and `java -version`.                                                                                                                                                   |
-| The build fails with `EBUSY` or `EPERM`                                | The game is still running. Close it and run the command again.                                                                                                                                                                                            |
-| The game doesn't show up in the join list                              | All PCs must be in the same network, the host must be hosting, and Windows must allow the game on private networks: Start → _Allow an app through Windows Firewall_ → enable **shapezio** for **Private**. Or join by address under **Advanced options**. |
-| _"Wrong password"_                                                     | Ask the host for the password. The game asks again with an empty field.                                                                                                                                                                                   |
-| _"The host runs a different game version"_                             | Everybody [updates](#6-update-to-a-new-version) to the latest version.                                                                                                                                                                                    |
+| Problem                                                                                              | Fix                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `winget` is not recognized                                                                           | Install **App Installer** from the Microsoft Store, then run the command again.                                                                                                                                                                           |
+| A tool "could not be installed"                                                                      | Restart the PC and run the command again. If it still fails, run the `winget install` line from the error message yourself.                                                                                                                               |
+| Downloading or installing the dependencies failed (`ENOTFOUND`, `ETIMEDOUT`, `gifsicle`, `pngquant`) | The setup already retries three times. Check your internet connection and run the command again; downloads continue where they stopped.                                                                                                                   |
+| The build fails with `EBUSY` or `EPERM`                                                              | The game is still running. Close it and run the command again.                                                                                                                                                                                            |
+| The game doesn't show up in the join list                                                            | All PCs must be in the same network, the host must be hosting, and Windows must allow the game on private networks: Start → _Allow an app through Windows Firewall_ → enable **shapezio** for **Private**. Or join by address under **Advanced options**. |
+| _"Wrong password"_                                                                                   | Ask the host for the password. The game asks again with an empty field.                                                                                                                                                                                   |
+| _"The host runs a different game version"_                                                           | Everybody [updates](#3-update) to the newest version.                                                                                                                                                                                                     |
 
 ### Sharing a build instead
 
-If one person has built the game, they can zip the whole `shapez-win32-x64` folder and send it to
-their friends directly. Everybody then has the same version without installing the tools. When
-starting it, Windows may show _"Windows protected your PC"_ because the game isn't signed; click
-**More info** → **Run anyway**. Please share it only with friends who own shapez, and don't upload
-it publicly.
+If one person has built the game, they can zip the whole
+`build_output\standalone\shapez-win32-x64` folder and send it to their friends directly. Everybody
+then has the same version without installing anything. When starting it, Windows may show
+_"Windows protected your PC"_ because the game isn't signed; click **More info** → **Run anyway**.
+Please share it only with friends who own shapez, and don't upload it publicly.
 
 ## For developers
 
