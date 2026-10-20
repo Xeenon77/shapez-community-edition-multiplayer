@@ -43,6 +43,16 @@ const FATAL_REASONS = [
  * @param {string} address
  */
 export function addressToUrl(address) {
+    const { host, port } = parseAddress(address);
+    return "ws://" + (host.includes(":") ? "[" + host + "]" : host) + ":" + port;
+}
+
+/**
+ * Splits "host", "host:port" or "[ipv6]:port" into host and port
+ * @param {string} address
+ * @returns {{ host: string, port: number }}
+ */
+export function parseAddress(address) {
     const trimmed = address.trim();
     let host = trimmed;
     let port = DEFAULT_PORT;
@@ -50,7 +60,7 @@ export function addressToUrl(address) {
     const ipv6 = trimmed.match(/^\[([0-9a-fA-F:.]+)\](?::(\d+))?$/);
     const plain = trimmed.match(/^([^:\s/]+)(?::(\d+))?$/);
     if (ipv6) {
-        host = "[" + ipv6[1] + "]";
+        host = ipv6[1];
         port = ipv6[2] ? Number(ipv6[2]) : port;
     } else if (plain) {
         host = plain[1];
@@ -62,7 +72,7 @@ export function addressToUrl(address) {
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
         throw new Error("Invalid port in address: " + address);
     }
-    return "ws://" + host + ":" + port;
+    return { host, port };
 }
 
 /**

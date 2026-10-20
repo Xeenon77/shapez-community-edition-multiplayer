@@ -186,6 +186,27 @@ $mpGameColor: #38c172;
         }
     }
 
+    .mpGameList .firewallHint {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.8rem;
+        padding: 0.5rem 0.7rem;
+        border-radius: $globalBorderRadius;
+        background: rgba(#e2524a, 0.1);
+        border: 0.1rem solid rgba(#e2524a, 0.35);
+
+        .text {
+            @include SuperSmallText;
+        }
+
+        button {
+            flex-shrink: 0;
+            padding: 0.3rem 0.8rem;
+            pointer-events: all;
+        }
+    }
+
     .mpCollapsible {
         margin-top: 0.4rem;
 

@@ -7,7 +7,7 @@ import { ClientApplier } from "./client_applier";
 import { HostAuthority } from "./host_authority";
 import { MultiplayerSavegame } from "./multiplayer_savegame";
 import { DEFAULT_PORT, describeReason } from "./protocol";
-import { addressToUrl, MP } from "./session";
+import { addressToUrl, MP, parseAddress } from "./session";
 
 /**
  * @typedef {import("../application").Application} Application
@@ -205,11 +205,18 @@ class FormElementCollapsible extends FormElement {
  */
 class FormElementGameList extends FormElement {
     /**
-     * @param {{ id: string, onChoose: (game: DiscoveredGame) => void }} param0
+     * @param {{
+     *   id: string,
+     *   onChoose: (game: DiscoveredGame) => void,
+     *   onFirewallFix: () => Promise<void>,
+     * }} param0
      */
-    constructor({ id, onChoose }) {
+    constructor({ id, onChoose, onFirewallFix }) {
         super(id, "Games on your local network");
         this.onChoose = onChoose;
+        this.onFirewallFix = onFirewallFix;
+        /** Firewall problems on this PC, checked once nothing was found @type {FirewallNetwork[]|null|undefined} */
+        this.firewallProblems = undefined;
         /** @type {HTMLElement|null} */
         this.element = null;
         /** @type {ClickDetector[]} */
@@ -265,7 +272,8 @@ class FormElementGameList extends FormElement {
 
         const key =
             JSON.stringify(games.map(g => [g.id, g.address, g.players, g.hasPassword, g.hostName])) +
-            searching;
+            searching +
+            JSON.stringify(this.firewallProblems ?? null);
         if (key === this.lastRenderKey) {
             return;
         }
@@ -287,6 +295,10 @@ class FormElementGameList extends FormElement {
             empty.innerText = searching
                 ? "Searching for games ..."
                 : "No games found. Ask the host to start hosting, or enter an address under Advanced options.";
+
+            if (!searching) {
+                this.renderFirewallHint();
+            }
             return;
         }
 
@@ -318,8 +330,216 @@ class FormElementGameList extends FormElement {
         }
     }
 
+    /**
+     * Games on the network can't be found when the firewall blocks this game
+     */
+    renderFirewallHint() {
+        if (this.firewallProblems === undefined) {
+            this.firewallProblems = null;
+            checkFirewall().then(report => {
+                this.firewallProblems = firewallProblems(report);
+                this.lastRenderKey = null;
+                this.render([]);
+            });
+            return;
+        }
+        if (!this.firewallProblems || this.firewallProblems.length === 0) {
+            return;
+        }
+
+        const hint = makeDiv(this.element, null, ["firewallHint"]);
+        makeDiv(hint, null, ["text"]).innerText =
+            "Windows Firewall blocks this game on " +
+            this.firewallProblems.map(network => network.alias).join(", ") +
+            ", which can hide games on your network.";
+        const button = document.createElement("button");
+        button.classList.add("styledButton");
+        button.innerText = "Allow in firewall";
+        hint.appendChild(button);
+
+        const detector = new ClickDetector(button, { consumeEvents: true, preventDefault: true });
+        detector.click.add(async () => {
+            await this.onFirewallFix();
+            // Check again after the change
+            this.firewallProblems = undefined;
+            this.lastRenderKey = null;
+        });
+        this.rowDetectors.push(detector);
+        this.clickTrackers.push(detector);
+    }
+
     getValue() {
         return null;
+    }
+}
+
+////////// Firewall //////////
+
+/**
+ * @typedef {{ name: string, alias: string, category: string, status: "allowed"|"blocked"|"no-rule" }} FirewallNetwork
+ * @typedef {{ supported: false } | { supported: true, ok: boolean, networks: FirewallNetwork[] }} FirewallReport
+ */
+
+/**
+ * Asks the main process whether Windows Firewall lets other PCs connect to this game
+ * @returns {Promise<FirewallReport|null>} null if the check itself failed
+ */
+async function checkFirewall() {
+    try {
+        return await ipcRenderer.invoke("mp-check-firewall");
+    } catch (ex) {
+        logger.warn("Firewall check failed:", ex);
+        return null;
+    }
+}
+
+/**
+ * @param {FirewallReport|null} report
+ */
+function firewallProblems(report) {
+    if (!report || !report.supported) {
+        return [];
+    }
+    return report.networks.filter(network => network.status !== "allowed");
+}
+
+/**
+ * @param {FirewallNetwork[]} networks
+ */
+function describeBlockedNetworks(networks) {
+    const rows = networks
+        .map(network => {
+            const kind = network.category === "Public" ? "public network" : "private network";
+            const how = network.status === "blocked" ? "blocked" : "not allowed yet";
+            return `<li>${escapeHtml(network.alias)} &ndash; ${escapeHtml(network.name)} (${kind}, ${how})</li>`;
+        })
+        .join("");
+    return `<ul class="mpAddressList">${rows}</ul>`;
+}
+
+/**
+ * Lets the player replace the game's firewall rules with one that allows
+ * connections; Windows asks for admin rights
+ * @param {HUDModalDialogs} dialogs
+ * @param {(text: string, type: string) => void} notify
+ */
+async function allowInFirewall(dialogs, notify) {
+    const closeLoading = dialogs.showLoadingDialog("Waiting for Windows ...");
+    let done = false;
+    try {
+        done = await ipcRenderer.invoke("mp-allow-firewall");
+    } catch (ex) {
+        logger.warn("Changing the firewall failed:", ex);
+    }
+    const remaining = firewallProblems(await checkFirewall());
+    closeLoading();
+
+    if (done && remaining.length === 0) {
+        notify("Firewall updated, other players can connect now", "success");
+    } else {
+        dialogs.showWarning(
+            "Firewall not changed",
+            "Windows Firewall still blocks the game" +
+                (done ? "." : " (the Windows prompt was declined).") +
+                "<br><br>You can also allow it yourself: Start &rarr; <em>Allow an app through Windows Firewall</em> " +
+                "&rarr; <em>Change settings</em> &rarr; tick <strong>Private</strong> and <strong>Public</strong> " +
+                "for every <strong>shapezio</strong> entry."
+        );
+    }
+}
+
+/**
+ * Warns the host when other PCs can't connect because of the firewall
+ * @param {GameRoot} root
+ * @param {FirewallNetwork[]} problems
+ */
+function showHostFirewallWarning(root, problems) {
+    const dialogs = root.hud.parts.dialogs;
+    const text = `
+        Windows Firewall doesn't let other PCs connect to this game on:
+        ${describeBlockedNetworks(problems)}
+        Your friends can see the game, but joining fails with <em>Could not connect to the host</em>.
+        <br><br>
+        <strong>Allow in firewall</strong> fixes this; Windows asks for permission first. It lets other
+        PCs connect to this game (and nothing else) on all networks.
+    `;
+    const signals = dialogs.showWarning("Friends can't join yet", text, [
+        "later:bad:escape",
+        "mpAllowFirewall:good",
+    ]);
+    styleLastDialog(dialogs);
+    signals.mpAllowFirewall.add(() =>
+        allowInFirewall(dialogs, (message, type) => root.hud.signals.notification.dispatch(message, type))
+    );
+}
+
+/**
+ * Checks the firewall after hosting started. A missing rule can mean Windows is
+ * still showing its own prompt, so that case is checked again a bit later.
+ * @param {GameRoot} root
+ */
+async function checkHostFirewall(root) {
+    let problems = firewallProblems(await checkFirewall());
+    if (problems.length > 0 && problems.every(network => network.status === "no-rule")) {
+        await new Promise(resolve => setTimeout(resolve, 20000));
+        problems = firewallProblems(await checkFirewall());
+    }
+    if (problems.length > 0 && MP.isHost(root)) {
+        showHostFirewallWarning(root, problems);
+    }
+}
+
+/**
+ * Explains why joining an address failed, by testing the connection
+ * @param {string} address
+ * @returns {Promise<string>} HTML
+ */
+async function diagnoseConnection(address) {
+    let host, port;
+    try {
+        ({ host, port } = parseAddress(address));
+    } catch {
+        return "The address <strong>" + escapeHtml(address) + "</strong> is not valid.";
+    }
+    const where = "<strong>" + escapeHtml(host + ":" + port) + "</strong>";
+
+    let probe;
+    try {
+        probe = await ipcRenderer.invoke("mp-probe-host", host, port);
+    } catch (ex) {
+        return "Could not connect to " + where + ".";
+    }
+
+    switch (probe.status) {
+        case "timeout":
+            return `
+                The host's PC at ${where} didn't answer.<br><br>
+                This almost always means <strong>Windows Firewall on the host's PC blocks the game</strong>.
+                The host should press <kbd>Esc</kbd> and click the multiplayer card: the game checks the
+                firewall there and can fix it.<br><br>
+                Also check that both PCs are in the same network.`;
+        case "refused":
+            return `
+                The PC at ${where} is reachable, but nothing is hosting there any more.<br><br>
+                Ask the host to host the game again, and check that the port matches.`;
+        case "unreachable":
+            return `
+                This PC can't reach ${where}.<br><br>
+                Both PCs need to be in the same network (the same Wi-Fi, or the same virtual network).`;
+        case "ok":
+            if (probe.info && probe.info.gameVersion && probe.info.gameVersion !== G_BUILD_VERSION) {
+                return describeReason("version-mismatch");
+            }
+            return `
+                The host's PC at ${where} answers, but joining still failed.<br><br>
+                Make sure you both use the newest version of the game, then try again.`;
+        default:
+            return (
+                "Could not connect to " +
+                where +
+                (probe.code ? " (" + escapeHtml(probe.code) + ")" : "") +
+                "."
+            );
     }
 }
 
@@ -389,6 +609,7 @@ export async function showHostDialog(root) {
                 "Hosting! Friends find your game under Join multiplayer.",
                 "success"
             );
+            checkHostFirewall(root);
         } catch (ex) {
             closeLoading();
             logger.warn("Failed to host:", ex);
@@ -423,11 +644,29 @@ function renderPlayerListHtml() {
  * Details of the running session, opened from the pause menu
  * @param {GameRoot} root
  */
-export function showSessionDialog(root) {
+export async function showSessionDialog(root) {
     const dialogs = root.hud.parts.dialogs;
 
     if (MP.role === "host" && MP.hostInfo) {
         const info = MP.hostInfo;
+
+        const closeChecking = dialogs.showLoadingDialog("Checking the connection ...");
+        const report = await checkFirewall();
+        closeChecking();
+        if (!MP.isHost(root)) {
+            return;
+        }
+        const problems = firewallProblems(report);
+        let firewallText = "";
+        if (problems.length > 0) {
+            firewallText = `
+                <br><br><strong>Windows Firewall blocks other PCs</strong> on:
+                ${describeBlockedNetworks(problems)}
+                Click <strong>Allow in firewall</strong> so your friends can connect.`;
+        } else if (report && report.supported) {
+            firewallText = "<br><br>Windows Firewall lets other PCs connect to this game.";
+        }
+
         const addresses = info.addresses
             .map(a => `<li><strong>${escapeHtml(a.address)}:${info.port}</strong></li>`)
             .join("");
@@ -440,12 +679,17 @@ export function showSessionDialog(root) {
             <br><br>
             If it doesn't show up for them, they can enter one of these addresses in the advanced options:
             <ul class="mpAddressList">${addresses || "<li>No network address found</li>"}</ul>
+            ${firewallText}
         `;
-        const signals = dialogs.showInfo("Hosting multiplayer", text, [
-            "mpStopHosting:bad",
-            "ok:good:escape",
-        ]);
+        const buttons = ["mpStopHosting:bad", "ok:good:escape"];
+        if (problems.length > 0) {
+            buttons.splice(1, 0, "mpAllowFirewall:good");
+        }
+        const signals = dialogs.showInfo("Hosting multiplayer", text, buttons);
         styleLastDialog(dialogs);
+        signals.mpAllowFirewall?.add(() =>
+            allowInFirewall(dialogs, (message, type) => root.hud.signals.notification.dispatch(message, type))
+        );
         signals.mpStopHosting.add(() => {
             MP.stop();
             root.hud.signals.notification.dispatch("Stopped hosting", "info");
@@ -530,6 +774,8 @@ export async function showJoinDialog(app, dialogs, moveToState) {
 
     const gameList = new FormElementGameList({
         id: "mpGames",
+        onFirewallFix: () =>
+            allowInFirewall(dialogs, message => dialogs.showInfo("Windows Firewall", escapeHtml(message))),
         onChoose: game =>
             choose({
                 address: game.address,
@@ -645,7 +891,13 @@ async function joinGame({ app, dialogs, moveToState, reopen, name, target, passw
             return;
         }
 
-        const { ok } = dialogs.showWarning("Could not join", escapeHtml(describeReason(reason)));
+        let text = escapeHtml(describeReason(reason));
+        if (reason === "connection-failed") {
+            const closeChecking = dialogs.showLoadingDialog("Checking the connection ...");
+            text = await diagnoseConnection(target.address);
+            closeChecking();
+        }
+        const { ok } = dialogs.showWarning("Could not join", text);
         ok.add(reopen);
     }
 }

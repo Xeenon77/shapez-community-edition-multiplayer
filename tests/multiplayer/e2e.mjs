@@ -21,6 +21,8 @@ const keepOpen = args.includes("--keep-open");
 const screenshotDir = args.find(a => a.startsWith("--screenshots="))?.split("=")[1] ?? null;
 
 const PORT = 24690;
+// Nothing listens here; used to test the explanation of a failed join
+const UNUSED_PORT = 24697;
 const runId = Date.now().toString(36);
 
 let failures = 0;
@@ -210,10 +212,45 @@ async function main() {
             await waitFor(host.page, () => window.shapezMultiplayer.role === "host", null, 10000),
             "host started a session"
         );
+
+        // The firewall check runs after hosting; a warning only appears if Windows blocks the game
+        const firewallWarning = await waitFor(
+            host.page,
+            () => document.body.innerText.toLowerCase().includes("friends can't join yet"),
+            null,
+            4000
+        );
+        console.log(
+            "  info firewall check on the host: " +
+                (firewallWarning ? "warns that Windows Firewall blocks the game" : "no warning")
+        );
+        if (firewallWarning) {
+            await screenshot(host, "host-firewall-warning");
+        }
         await closeDialogs(host.page);
 
-        // ---- Client: the host shows up in the join dialog by itself
+        // ---- Client: joining an address where nothing is hosting explains why it failed
         await client.page.click(".joinMultiplayerButton");
+        await client.page.click(".ingameDialog .mpCollapsible .toggle");
+        await fillInput(client.page, "mpAddress", "127.0.0.1:" + UNUSED_PORT);
+        await client.page.click(".ingameDialog button:has-text('Join')");
+        check(
+            await waitFor(
+                client.page,
+                () => document.body.innerText.toLowerCase().includes("nothing is hosting there"),
+                null,
+                15000
+            ),
+            "a failed join explains that nothing is hosting at that address"
+        );
+        await screenshot(client, "join-diagnosis");
+        // OK goes back to the join dialog
+        await client.page.click(".ingameDialog button:has-text('OK')");
+        await client.page.click(".ingameDialog .mpCollapsible .toggle");
+        await fillInput(client.page, "mpAddress", "");
+        await client.page.click(".ingameDialog .mpCollapsible .toggle");
+
+        // ---- Client: the host shows up in the join dialog by itself
         const discovered = client.page.locator(".mpGameList .game", { hasText: "Hosty" });
         check(
             await discovered
@@ -241,7 +278,7 @@ async function main() {
         const joinButton = ".ingameDialog button:has-text('Join')";
         check(!(await client.page.isVisible(joinButton)), "Join button is hidden without an address");
         await client.page.click(".ingameDialog .mpCollapsible .toggle");
-        await fillInput(client.page, "mpAddress", "127.0.0.1:1");
+        await fillInput(client.page, "mpAddress", "127.0.0.1:" + UNUSED_PORT);
         check(await client.page.isVisible(joinButton), "Join button appears once an address is typed");
         await fillInput(client.page, "mpAddress", "");
         await screenshot(client, "join-dialog");
@@ -694,7 +731,12 @@ async function main() {
         await screenshot(client, "client-disconnected");
 
         for (const peer of peers) {
-            const relevant = peer.errors.filter(e => !e.includes("Failed to load resource"));
+            const relevant = peer.errors.filter(
+                e =>
+                    !e.includes("Failed to load resource") &&
+                    // Chromium logs the deliberately failed join itself
+                    !e.includes(`ws://127.0.0.1:${UNUSED_PORT}/`)
+            );
             check(relevant.length === 0, `no console errors on ${peer.profile}`);
             if (relevant.length > 0) {
                 console.log("    " + relevant.slice(0, 10).join("\n    "));

@@ -2,6 +2,7 @@ import { BrowserWindow, IpcMainInvokeEvent, app, ipcMain } from "electron";
 import os from "node:os";
 import { FsJob, FsJobHandler } from "./fsjob.js";
 import { ModLoader } from "./mods/loader.js";
+import { allowInFirewall, checkFirewall, probeHost } from "./multiplayer/diagnostics.js";
 import { DiscoveryBeacon, DiscoveryListener } from "./multiplayer/discovery.js";
 import { MultiplayerServer } from "./multiplayer/server.js";
 import { getDefaultPlayerName } from "./multiplayer/steam_name.js";
@@ -30,6 +31,14 @@ export class IpcHandler {
         ipcMain.handle("mp-get-addresses", this.getNetworkAddresses.bind(this));
         ipcMain.handle("mp-discover", this.discoverGames.bind(this));
         ipcMain.handle("mp-get-default-name", () => getDefaultPlayerName());
+        ipcMain.handle("mp-probe-host", (_event, host: unknown, port: unknown) => {
+            if (typeof host !== "string" || host.length > 255 || !Number.isInteger(port)) {
+                throw new Error("Invalid address");
+            }
+            return probeHost(host, port as number);
+        });
+        ipcMain.handle("mp-check-firewall", () => checkFirewall());
+        ipcMain.handle("mp-allow-firewall", () => allowInFirewall());
 
         app.on("before-quit", () => {
             this.stopMultiplayerHost();

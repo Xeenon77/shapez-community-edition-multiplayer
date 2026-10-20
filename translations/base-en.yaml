@@ -173,6 +173,7 @@ dialogs:
         mpLeave: Leave game
         mpGoToSettings: Go to settings
         mpGoToKeybindings: Go to keybindings
+        mpAllowFirewall: Allow in firewall
 
     importSavegameError:
         title: Import Error
